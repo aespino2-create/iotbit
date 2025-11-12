@@ -32,22 +32,21 @@
     const channelId = 3160844;
     const fields = [1,2,3];
 
-    function fetchLastEntry() {
-      const script = document.createElement('script');
-      const callbackName = 'handleThingSpeakData';
-      // 🔹 Importante: no incluir api_key en canales públicos
-      script.src = `https://api.thingspeak.com/channels/${channelId}/feeds/last.json?callback=${callbackName}`;
-      document.body.appendChild(script);
-      script.onerror = () => {
-        document.getElementById('timestamp').textContent = 'Error al cargar datos.';
-      };
+    async function fetchLastCSV() {
+      const url = `https://api.thingspeak.com/channels/${channelId}/feeds.csv?results=1`;
+      const response = await fetch(url);
+      if (!response.ok) throw new Error('Error HTTP ' + response.status);
+      const text = await response.text();
+      // Primera línea son encabezados, segunda contiene datos
+      const lines = text.trim().split('\\n');
+      const headers = lines[0].split(',');
+      const values = lines[1].split(',');
+      const data = {};
+      headers.forEach((h, i) => data[h] = values[i]);
+      return data;
     }
 
-    function handleThingSpeakData(entry) {
-      if (!entry) {
-        document.getElementById('timestamp').textContent = 'Sin datos disponibles.';
-        return;
-      }
+    function render(entry) {
       const container = document.getElementById('values');
       container.innerHTML = '';
       fields.forEach(f => {
@@ -61,8 +60,17 @@
         'Hora: ' + new Date(entry.created_at).toLocaleString();
     }
 
-    fetchLastEntry();
-    setInterval(fetchLastEntry, 60000);
+    async function update() {
+      try {
+        const last = await fetchLastCSV();
+        render(last);
+      } catch (err) {
+        document.getElementById('timestamp').textContent = 'Error al obtener datos: ' + err.message;
+      }
+    }
+
+    update();
+    setInterval(update, 60000);
   </script>
 </body>
 </html>
