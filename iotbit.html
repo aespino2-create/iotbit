@@ -30,22 +30,24 @@
 
   <script>
     const channelId = 3160844;
-    const readKey = 'LOX23STSR6WLII5O';
     const fields = [1,2,3];
 
-    // Función para obtener los datos usando JSONP (evita CORS)
     function fetchLastEntry() {
       const script = document.createElement('script');
       const callbackName = 'handleThingSpeakData';
-      script.src = `https://api.thingspeak.com/channels/${channelId}/feeds/last.json?api_key=${readKey}&callback=${callbackName}`;
+      // 🔹 Importante: no incluir api_key en canales públicos
+      script.src = `https://api.thingspeak.com/channels/${channelId}/feeds/last.json?callback=${callbackName}`;
       document.body.appendChild(script);
       script.onerror = () => {
         document.getElementById('timestamp').textContent = 'Error al cargar datos.';
       };
     }
 
-    // Callback que ThingSpeak ejecuta al responder
     function handleThingSpeakData(entry) {
+      if (!entry) {
+        document.getElementById('timestamp').textContent = 'Sin datos disponibles.';
+        return;
+      }
       const container = document.getElementById('values');
       container.innerHTML = '';
       fields.forEach(f => {
@@ -59,7 +61,6 @@
         'Hora: ' + new Date(entry.created_at).toLocaleString();
     }
 
-    // Primera carga + actualización cada 60 segundos
     fetchLastEntry();
     setInterval(fetchLastEntry, 60000);
   </script>
