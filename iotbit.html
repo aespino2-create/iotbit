@@ -31,35 +31,37 @@
   <script>
     const channelId = 3160844;
     const readKey = 'LOX23STSR6WLII5O';
-    const fields = [1,2,3];
+    const fields = [1, 2, 3];
 
-    function fetchLastEntryJSONP(callbackName){
-      const script = document.createElement('script');
-      script.src = `https://api.thingspeak.com/channels/${channelId}/feeds/last.json?api_key=${readKey}&callback=${callbackName}`;
-      script.onerror = ()=>{ document.getElementById('timestamp').textContent='Error al cargar datos.'; };
-      document.body.appendChild(script);
-      // Elimina el script después de cargarlo
-      script.onload = () => { document.body.removeChild(script); };
+    async function fetchLastEntry() {
+      const url = `https://api.thingspeak.com/channels/${channelId}/feeds/last.json?api_key=${readKey}`;
+      const r = await fetch(url);
+      if (!r.ok) throw new Error('Error HTTP ' + r.status);
+      return await r.json();
     }
 
-    function render(entry){
+    function render(entry) {
       const container = document.getElementById('values');
-      container.innerHTML='';
-      fields.forEach(f=>{
+      container.innerHTML = '';
+      fields.forEach(f => {
         const value = entry[`field${f}`] ?? '—';
         const div = document.createElement('div');
-        div.className='stat';
-        div.innerHTML=`<div class='stat-label'>Field ${f}</div><div class='stat-value'>${value}</div>`;
+        div.className = 'stat';
+        div.innerHTML = `<div class='stat-label'>Field ${f}</div><div class='stat-value'>${value}</div>`;
         container.appendChild(div);
       });
-      document.getElementById('timestamp').textContent = 'Hora: '+ new Date(entry.created_at).toLocaleString();
+      document.getElementById('timestamp').textContent =
+        'Hora: ' + new Date(entry.created_at).toLocaleString();
     }
 
-    function update(){
-      window.handleThingSpeak = function(data){
-        render(data);
-      };
-      fetchLastEntryJSONP('handleThingSpeak');
+    async function update() {
+      try {
+        const last = await fetchLastEntry();
+        render(last);
+      } catch (err) {
+        document.getElementById('timestamp').textContent =
+          'Error al obtener datos: ' + err.message;
+      }
     }
 
     update();
