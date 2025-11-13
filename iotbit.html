@@ -1,73 +1,39 @@
-<!doctype html>
-<html lang="es">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Visor ThingSpeak — Canal 3160844</title>
-  <style>
-    body{font-family:Inter,system-ui,sans-serif;margin:0;padding:0;background:#0f172a;color:#e6eef8}
-    .app{max-width:800px;margin:40px auto;padding:20px}
-    .card{background:#111b3a;border-radius:12px;padding:16px;box-shadow:0 0 12px rgba(0,0,0,0.3)}
-    h1{font-size:1.3rem;margin-bottom:6px}
-    .small{font-size:0.85rem;color:#aab3cf}
-    .stat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin-top:12px}
-    .stat{background:#16244f;padding:10px;border-radius:8px;text-align:center}
-    .stat-label{font-size:0.8rem;color:#aab3cf}
-    .stat-value{font-size:1.4rem;font-weight:600}
-    footer{margin-top:18px;text-align:center;color:#64748b;font-size:0.8rem}
-  </style>
-</head>
-<body>
-  <div class="app">
-    <div class="card">
-      <h1>Última lectura — Canal ThingSpeak 3160844</h1>
-      <div class="small">Campos mostrados: Field 1, Field 2 y Field 3</div>
-      <div id="timestamp" class="small" style="margin-top:8px">Actualizando...</div>
-      <div id="values" class="stat-grid"></div>
-    </div>
-    <footer>Fuente: ThingSpeak API · Canal 3160844</footer>
-  </div>
+<script>
+  const channelId = 3160844;
+  const fields = [1, 2, 3];
 
-  <script>
-    const channelId = 3160844;
-    const fields = [1, 2, 3];
+  async function fetchLastEntry() {
+    const url = `https://api.thingspeak.com/channels/${channelId}/feeds/last.json`;
+    const proxy = `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}&t=${Date.now()}`;
+    const response = await fetch(proxy);
+    if (!response.ok) throw new Error('HTTP ' + response.status);
+    return await response.json();
+  }
 
-    async function fetchLastEntry() {
-      // Usamos un proxy público (api.allorigins.win) para evitar CORS
-      const url = `https://api.thingspeak.com/channels/${channelId}/feeds/last.json`;
-      const proxy = `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`;
-      const response = await fetch(proxy);
-      if (!response.ok) throw new Error('Error HTTP ' + response.status);
-      const data = await response.json();
-      return JSON.parse(data.contents);
-    }
+  function render(entry) {
+    const container = document.getElementById('values');
+    container.innerHTML = '';
+    fields.forEach(f => {
+      const value = entry[`field${f}`] ?? '—';
+      const div = document.createElement('div');
+      div.className = 'stat';
+      div.innerHTML = `<div class='stat-label'>Field ${f}</div><div class='stat-value'>${value}</div>`;
+      container.appendChild(div);
+    });
+    document.getElementById('timestamp').textContent =
+      'Hora: ' + new Date(entry.created_at).toLocaleString();
+  }
 
-    function render(entry) {
-      const container = document.getElementById('values');
-      container.innerHTML = '';
-      fields.forEach(f => {
-        const value = entry[`field${f}`] ?? '—';
-        const div = document.createElement('div');
-        div.className = 'stat';
-        div.innerHTML = `<div class='stat-label'>Field ${f}</div><div class='stat-value'>${value}</div>`;
-        container.appendChild(div);
-      });
+  async function update() {
+    try {
+      const last = await fetchLastEntry();
+      render(last);
+    } catch (err) {
       document.getElementById('timestamp').textContent =
-        'Hora: ' + new Date(entry.created_at).toLocaleString();
+        'Error al obtener datos: ' + err.message;
     }
+  }
 
-    async function update() {
-      try {
-        const last = await fetchLastEntry();
-        render(last);
-      } catch (err) {
-        document.getElementById('timestamp').textContent =
-          'Error al obtener datos: ' + err.message;
-      }
-    }
-
-    update();
-    setInterval(update, 60000);
-  </script>
-</body>
-</html>
+  update();
+  setInterval(update, 60000);
+</script>
