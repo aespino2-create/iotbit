@@ -7,74 +7,82 @@
 
 <!-- Chart.js -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
 <style>
-  body {
-    background: #E0F2F7;
-    font-family: Arial, sans-serif;
-    margin: 0;
-    padding: 20px;
-    color: #1F3A57;
-  }
+body {
+  background: #E0F2F7;
+  font-family: Arial, sans-serif;
+  margin: 0;
+  padding: 20px;
+  color: #1F3A57;
+}
 
-  .card {
-    background: #FFFFFF;
-    border-radius: 12px;
-    padding: 20px;
-    max-width: 700px;
-    margin: 20px auto;
-    box-shadow: 0 2px 10px rgba(0,0,0,0.08);
-  }
+.card {
+  background: #FFFFFF;
+  border-radius: 12px;
+  padding: 20px;
+  max-width: 700px;
+  margin: 20px auto;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+}
 
-  #values {
-    display: flex;
-    justify-content: space-between;
-    margin-top: 15px;
-  }
+#values {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 15px;
+}
 
-  .stat {
-    background: #FFFFFF;
-    border: 1px solid #C4DCE4;
-    border-radius: 10px;
-    padding: 10px;
-    width: 30%;
-    text-align: center;
-    box-shadow: 0 1px 4px rgba(0,0,0,0.05);
-  }
+.stat {
+  background: #FFFFFF;
+  border: 1px solid #C4DCE4;
+  border-radius: 10px;
+  padding: 10px;
+  width: 30%;
+  text-align: center;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+}
 
-  .stat-label {
-    color: #3A7CA5;
-    font-size: 12px;
-  }
+.stat-label {
+  color: #3A7CA5;
+  font-size: 12px;
+}
 
-  .stat-value {
-    color: #1F3A57;
-    font-size: 22px;
-    margin-top: 5px;
-  }
+.stat-value {
+  color: #1F3A57;
+  font-size: 22px;
+  margin-top: 5px;
+}
 
-  #timestamp {
-    margin-top: 15px;
-    text-align: center;
-    font-size: 14px;
-    color: #1F3A57;
-  }
+#errorBox {
+  display: none;
+  background: #FDECEA;
+  color: #A94442;
+  padding: 12px;
+  margin-top: 16px;
+  border-radius: 8px;
+  text-align: center;
+}
 
-  #errorBox {
-    display: none;
-    background: #FDECEA;
-    color: #A94442;
-    padding: 12px;
-    margin-top: 16px;
-    border-radius: 8px;
-    text-align: center;
-  }
+#timestamp {
+  margin-top: 15px;
+  text-align: center;
+  font-size: 14px;
+  color: #1F3A57;
+}
 
-  canvas {
-    margin-top: 20px;
-    background: #f5f5f5;
-    border-radius: 10px;
-  }
+canvas {
+  margin-top: 20px;
+  background: #f5f5f5;
+  border-radius: 10px;
+}
+
+@media (prefers-color-scheme: dark) {
+  body { background: #1A1A1A; color: #E0E0E0; }
+  .card { background: #2E2E2E; }
+  .stat { background: #333; border-color: #444; }
+  .stat-label { color: #00C8FF; }
+  .stat-value { color: #E0E0E0; }
+  #errorBox { background: #531919; color: #FFB2B2; }
+}
 </style>
 </head>
 <body>
@@ -94,43 +102,46 @@
 <script>
 document.addEventListener("DOMContentLoaded", () => {
   const channelId = 3160844;
+
+  // Aquí defines tus nombres personalizados
+  const fieldNames = ["Temperatura", "Humedad", "Luminosidad"];
   const fields = [1,2,3];
 
-  // Guardar última lectura
+  let charts = [];
+
+  // Guardar última lectura + historial
   function saveLastGood(entry) {
     try {
       let history = JSON.parse(localStorage.getItem("history")) || {};
-      fields.forEach(f => {
+      fields.forEach((f,i) => {
         if(!history[`field${f}`]) history[`field${f}`] = [];
         history[`field${f}`].push({value: entry[`field${f}`], time: entry.created_at});
-        if(history[`field${f}`].length > 24) history[`field${f}`].shift(); // solo últimas 24
+        if(history[`field${f}`].length > 24) history[`field${f}`].shift();
       });
       localStorage.setItem("history", JSON.stringify(history));
     } catch {}
     localStorage.setItem("lastGoodReading", JSON.stringify(entry));
   }
 
-  // Cargar última lectura
   function loadLastGood() {
     try { return JSON.parse(localStorage.getItem("lastGoodReading")); } catch { return null; }
   }
 
-  // Cargar historial
   function loadHistory() {
     try { return JSON.parse(localStorage.getItem("history")) || {}; } catch { return {}; }
   }
 
   function render(entry) {
     document.getElementById("errorBox").style.display = "none";
-
     const container = document.getElementById("values");
     container.innerHTML = "";
 
-    fields.forEach(f => {
+    fields.forEach((f,i) => {
       const value = entry[`field${f}`] ?? "—";
+      const label = fieldNames[i] ?? `Field ${f}`;
       const div = document.createElement("div");
       div.className = "stat";
-      div.innerHTML = `<div class='stat-label'>Field ${f}</div><div class='stat-value'>${value}</div>`;
+      div.innerHTML = `<div class='stat-label'>${label}</div><div class='stat-value'>${value}</div>`;
       container.appendChild(div);
     });
 
@@ -166,20 +177,23 @@ document.addEventListener("DOMContentLoaded", () => {
     return await fetchWithFallback(url);
   }
 
-  // Graficos
-  let charts = [];
-
   function renderCharts() {
     const history = loadHistory();
     fields.forEach((f,i) => {
-      const ctx = document.getElementById(`chart${f}`).getContext('2d');
-      const data = history[`field${f}`]?.map(e => ({x: new Date(e.time), y: e.value})) || [];
+      const canvas = document.getElementById(`chart${f}`);
+      if(!canvas) return;
+      const ctx = canvas.getContext('2d');
+
+      const raw = history[`field${f}`] || [];
+      const data = raw.map(e => ({ x: new Date(e.time), y: Number(e.value) }));
+
       if(charts[i]) charts[i].destroy();
+
       charts[i] = new Chart(ctx, {
         type: 'line',
         data: {
           datasets: [{
-            label: `Field ${f}`,
+            label: fieldNames[i] || `Field ${f}`,
             data: data,
             borderColor: '#3A7CA5',
             backgroundColor: 'rgba(58,124,165,0.2)',
@@ -194,7 +208,7 @@ document.addEventListener("DOMContentLoaded", () => {
             x: { type: 'time', time: { unit: 'hour', tooltipFormat: 'dd/MM HH:mm' } },
             y: { beginAtZero: true }
           },
-          plugins: { legend: { display: false } }
+          plugins: { legend: { display: true } }
         }
       });
     });
