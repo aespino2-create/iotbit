@@ -4,7 +4,13 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>IoT Bit – Dashboard con Gráficos</title>
+
+<!-- Chart.js -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<!-- Luxon + Chart.js adapter -->
+<script src="https://cdn.jsdelivr.net/npm/luxon@3/build/global/luxon.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-luxon@1"></script>
+
 <style>
 body { background:#E0F2F7; font-family:Arial,sans-serif; margin:0; padding:20px; color:#1F3A57; }
 .card { background:#fff; border-radius:12px; padding:20px; max-width:700px; margin:20px auto; box-shadow:0 2px 10px rgba(0,0,0,0.08);}
@@ -37,12 +43,12 @@ document.addEventListener("DOMContentLoaded", () => {
   const fieldNames = ["Temperatura","Humedad","Luminosidad"];
   let charts = [];
 
-  // Guardar lectura y mantener historial en localStorage
+  // Guardar historial de lecturas
   function saveHistory(entry){
     try{
       let history = JSON.parse(localStorage.getItem("history")) || {};
-      fields.forEach((f)=>{
-        if(!history[`field${f}`]) history[`field${f}`] = [];
+      fields.forEach(f=>{
+        if(!history[`field${f}`]) history[`field${f}`]=[];
         history[`field${f}`].push({value: entry[`field${f}`], time: entry.created_at});
         if(history[`field${f}`].length>24) history[`field${f}`].shift();
       });
@@ -54,7 +60,7 @@ document.addEventListener("DOMContentLoaded", () => {
   function loadHistory(){ 
     try{return JSON.parse(localStorage.getItem("history"))||{};}catch{return {};}
   }
-  function loadLastGood(){
+  function loadLastGood(){ 
     try{return JSON.parse(localStorage.getItem("lastGoodReading"));}catch{return null;}
   }
 
@@ -80,7 +86,6 @@ document.addEventListener("DOMContentLoaded", () => {
       const ctx = canvas.getContext('2d');
 
       let raw = history[`field${f}`] || [];
-      // Si no hay datos, usar un valor temporal
       if(raw.length===0) raw=[{value:0,time:new Date().toISOString()}];
 
       const data = raw.map(e=>({x:new Date(e.time), y:Number(e.value)})).filter(e=>!isNaN(e.x)&&!isNaN(e.y));
@@ -116,9 +121,9 @@ document.addEventListener("DOMContentLoaded", () => {
     const url=`https://api.thingspeak.com/channels/${channelId}/feeds/last.json`;
     try{
       const proxy=`https://api.allorigins.win/raw?url=${encodeURIComponent(url)}&t=${Date.now()}`;
-      const res=await fetch(proxy);
+      const res = await fetch(proxy);
       if(!res.ok) throw new Error("HTTP "+res.status);
-      const data=await res.json();
+      const data = await res.json();
       renderValues(data);
       saveHistory(data);
       renderCharts();
@@ -142,3 +147,4 @@ document.addEventListener("DOMContentLoaded", () => {
 
 </body>
 </html>
+
